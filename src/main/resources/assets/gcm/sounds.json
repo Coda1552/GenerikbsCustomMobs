@@ -1,0 +1,65 @@
+{
+  "booger_eater.hurt": {
+    "sounds": [
+      {
+        "name": "gcm:booger_eater/hurt1"
+      },
+      {
+        "name": "gcm:booger_eater/hurt2"
+      },
+      {
+        "name": "gcm:booger_eater/hurt3"
+      }
+    ],
+    "subtitle": "gcm.sound.subtitle.be_hurt"
+  },
+  "booger_eater.death": {
+    "sounds": [
+      {
+        "name": "gcm:booger_eater/death1"
+      },
+      {
+        "name": "gcm:booger_eater/death2"
+      },
+      {
+        "name": "gcm:booger_eater/death3"
+      },
+      {
+        "name": "gcm:booger_eater/death4"
+      }
+    ],
+    "subtitle": "gcm.sound.subtitle.be_death"
+  },
+  "booger_eater.idle": {
+    "sounds": [
+      {
+        "name": "gcm:booger_eater/idle1"
+      },
+      {
+        "name": "gcm:booger_eater/idle2"
+      },
+      {
+        "name": "gcm:booger_eater/idle3"
+      },
+      {
+        "name": "gcm:booger_eater/idle4"
+      },
+      {
+        "name": "gcm:booger_eater/idle5"
+      },
+      {
+        "name": "gcm:booger_eater/idle6"
+      },
+      {
+        "name": "gcm:booger_eater/idle7"
+      },
+      {
+        "name": "gcm:booger_eater/idle8"
+      },
+      {
+        "name": "gcm:booger_eater/idle9"
+      }
+    ],
+    "subtitle": "gcm.sound.subtitle.be_idle"
+  }
+}

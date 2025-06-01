@@ -1,0 +1,11 @@
+{
+  "item.gcm.booger_eater_spawn_egg": "Booger Eater Spawn Egg",
+  "item.gcm.booger_spawn_egg": "Booger Spawn Egg",
+  "entity.gcm.booger_eater": "Booger Eater",
+  "entity.gcm.booger": "Booger",
+  "entity.gcm.tossed_booger": "Tossed Booger",
+
+  "gcm.sound.subtitle.be_hurt": "Booger Eater whines",
+  "gcm.sound.subtitle.be_death": "Booger Eater dies",
+  "gcm.sound.subtitle.be_idle": "Booger Eater cries"
+}
