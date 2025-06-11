@@ -163,7 +163,7 @@ public class BoogerEater extends Monster implements GeoEntity, RangedAttackMob {
     public void tick() {
         super.tick();
 
-        if (!isCustomNameVisible()) setCustomNameVisible(true);
+/*        if (!isCustomNameVisible()) setCustomNameVisible(true);
 
         if (tickCount == 1 && !level().isClientSide()) {
             if (getBoogerType() == 0) {
@@ -173,7 +173,7 @@ public class BoogerEater extends Monster implements GeoEntity, RangedAttackMob {
             } else if (getBoogerType() == 2) {
                 setCustomName(Component.literal("Summoner"));
             }
-        }
+        }*/
     }
 
     protected SoundEvent getDeathSound() {

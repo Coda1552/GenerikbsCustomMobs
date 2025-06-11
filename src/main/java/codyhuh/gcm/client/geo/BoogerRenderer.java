@@ -3,11 +3,8 @@ package codyhuh.gcm.client.geo;
 import codyhuh.gcm.client.geo.layers.BoogerHeadRenderLayer;
 import codyhuh.gcm.common.entities.Booger;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import software.bernie.geckolib.cache.object.BakedGeoModel;
-import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 public class BoogerRenderer<T extends Booger> extends ModGeoRenderer<T> {
 

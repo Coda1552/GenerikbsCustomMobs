@@ -1,6 +1,7 @@
 package codyhuh.gcm.client.geo;
 
 import codyhuh.gcm.GenerikbsCustomMobs;
+import codyhuh.gcm.TextureUtils;
 import codyhuh.gcm.common.entities.Booger;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
@@ -15,12 +16,16 @@ public class BoogerModel<T extends Booger> extends GeoModel<T> {
 
     @Override
     public ResourceLocation getModelResource(T animatable) {
-        return new ResourceLocation(GenerikbsCustomMobs.MOD_ID, "geo/entity/booger/" + getSize(animatable, 1));
+        return new ResourceLocation(GenerikbsCustomMobs.MOD_ID, "geo/entity/booger/head.geo.json"/* + getSize(animatable, 1)*/);
     }
 
     @Override
     public ResourceLocation getTextureResource(T animatable) {
-        return new ResourceLocation(GenerikbsCustomMobs.MOD_ID, "textures/entity/booger_head.png"/* + getSize(animatable, 2)*/);
+        return getSkin(animatable);
+    }
+
+    private ResourceLocation getSkin(T e) {
+        return TextureUtils.getPlayerSkin(e);
     }
 
     @Override

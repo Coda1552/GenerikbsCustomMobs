@@ -26,19 +26,6 @@ public class GenerikbsCustomMobs {
 
         forgeBus.register(this);
 
-        forgeBus.addListener(this::levelUnloadEvent);
-        forgeBus.addListener(this::levelLoadEvent);
-    }
-
-    private void levelLoadEvent(LevelEvent.Load e) {
-        Services services = Services.create(Minecraft.getInstance().authenticationService, Minecraft.getInstance().gameDirectory);
-        Booger.setup(services, Minecraft.getInstance());
-    }
-
-    private void levelUnloadEvent(LevelEvent.Unload e) {
-        if (!Minecraft.getInstance().isLocalServer) {
-            Services services = Services.create(Minecraft.getInstance().authenticationService, Minecraft.getInstance().gameDirectory);
-            Booger.setup(services, Minecraft.getInstance());
-        }
     }
 }
+

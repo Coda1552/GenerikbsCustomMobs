@@ -1,18 +1,22 @@
 package codyhuh.gcm.common.entities;
 
+import codyhuh.gcm.NameManager;
+import codyhuh.gcm.PlayerName;
+import codyhuh.gcm.ProfileUpdater;
 import codyhuh.gcm.registry.ModAnimations;
 import codyhuh.gcm.registry.ModEntities;
-import com.google.common.collect.Iterables;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.minecraft.MinecraftSessionService;
-import com.mojang.authlib.properties.Property;
-import net.minecraft.Util;
+import com.mojang.authlib.minecraft.MinecraftProfileTexture;
+import net.minecraft.client.resources.SkinManager;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.Services;
-import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringUtil;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.EntityType;
@@ -25,6 +29,8 @@ import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -34,19 +40,13 @@ import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
-import java.util.UUID;
-import java.util.concurrent.Executor;
-import java.util.function.Consumer;
+
+import java.util.Objects;
+import java.util.Optional;
+
+import static com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.ELYTRA;
 
 public class Booger extends Slime implements GeoEntity {
-    @Nullable
-    private static GameProfileCache profileCache;
-    @Nullable
-    private static MinecraftSessionService sessionService;
-    @Nullable
-    private static Executor mainThreadExecutor;
-    @Nullable
-    private GameProfile owner;
 
     public Booger(EntityType<? extends Slime> p_33588_, Level p_33589_) {
         super(p_33588_, p_33589_);
@@ -55,6 +55,142 @@ public class Booger extends Slime implements GeoEntity {
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 10.0D).add(Attributes.FOLLOW_RANGE, 32.0D).add(Attributes.ATTACK_DAMAGE, 1.0D).add(Attributes.MOVEMENT_SPEED, 0.25D);
     }
+
+
+    private static final EntityDataAccessor<String> NAME = SynchedEntityData.defineId(Booger.class, EntityDataSerializers.STRING);
+    @Nullable
+    private GameProfile profile;
+    @Nullable
+    private ResourceLocation skin;
+    private boolean skinAvailable;
+
+    @Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        getEntityData().define(NAME, "");
+    }
+
+    @Override
+    public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor p_33601_, DifficultyInstance p_33602_, MobSpawnType p_33603_, @org.jetbrains.annotations.Nullable SpawnGroupData p_33604_, @org.jetbrains.annotations.Nullable CompoundTag p_33605_) {
+
+        if (!hasUsername())
+            setUsername(NameManager.INSTANCE.getRandomName());
+
+        return super.finalizeSpawn(p_33601_, p_33602_, p_33603_, p_33604_, p_33605_);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag compound) {
+        super.addAdditionalSaveData(compound);
+        if (getCustomName() != null && getCustomName().getString().isEmpty())
+            compound.remove("CustomName");
+
+        String username = getUsername().getCombinedNames();
+        if (!StringUtil.isNullOrEmpty(username))
+            compound.putString("Username", username);
+
+        if (profile != null && profile.isComplete())
+            compound.put("Profile", NbtUtils.writeGameProfile(new CompoundTag(), profile));
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag compound) {
+        super.readAdditionalSaveData(compound);
+        String username = compound.getString("Username");
+        if (!StringUtil.isNullOrEmpty(username)) {
+            setUsername(username);
+        } else {
+            setUsername(NameManager.INSTANCE.getRandomName());
+        }
+
+        if (compound.contains("Profile", Tag.TAG_COMPOUND)) {
+            profile = NbtUtils.readGameProfile(compound.getCompound("Profile"));
+        }
+    }
+
+    @Override
+    public Component getCustomName() {
+        Component customName = super.getCustomName();
+        String displayName = getUsername().getDisplayName();
+        return customName != null && !customName.getString().isEmpty() ? customName : !StringUtil.isNullOrEmpty(displayName) ? Component.literal(displayName) : null;
+    }
+
+    @Override
+    public boolean hasCustomName() {
+        return super.hasCustomName() || !StringUtil.isNullOrEmpty(getUsername().getDisplayName());
+    }
+
+
+    @Nullable
+    public GameProfile getProfile() {
+        if (profile == null && hasUsername()) {
+            profile = new GameProfile(null, getUsername().getSkinName());
+            ProfileUpdater.updateProfile(this);
+        }
+        return profile;
+    }
+
+    public void setProfile(@Nullable GameProfile profile) {
+        this.profile = profile;
+    }
+
+    public boolean hasUsername() {
+        return !StringUtil.isNullOrEmpty(getEntityData().get(NAME));
+    }
+
+    public PlayerName getUsername() {
+        if (!hasUsername() && !level().isClientSide()) {
+            setUsername(NameManager.INSTANCE.getRandomName());
+        }
+        return new PlayerName(getEntityData().get(NAME));
+    }
+
+    public void setUsername(String username) {
+        PlayerName playerName = new PlayerName(username);
+        if (playerName.noDisplayName()) {
+            Optional<PlayerName> name = NameManager.INSTANCE.findName(username);
+            if (name.isPresent())
+                playerName = name.get();
+        }
+        NameManager.INSTANCE.useName(playerName);
+        setUsername(playerName);
+    }
+
+    public void setUsername(PlayerName name) {
+        PlayerName oldName = hasUsername() ? getUsername(): null;
+        getEntityData().set(NAME, name.getCombinedNames());
+
+        if (!Objects.equals(oldName, name)) {
+            setProfile(null);
+            getProfile();
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public SkinManager.SkinTextureCallback getSkinCallback() {
+        return (type, location, profileTexture) -> {
+            switch (type) {
+                case SKIN -> {
+                    skin = location;
+                    skinAvailable = true;
+                }
+            }
+        };
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public boolean isTextureAvailable(MinecraftProfileTexture.Type type) {
+        return skinAvailable;
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @OnlyIn(Dist.CLIENT)
+    public ResourceLocation getTexture(MinecraftProfileTexture.Type type) {
+        return skin;
+    }
+
+
+    ///// VVV /////
 
     @Override
     public void travel(Vec3 p_21280_) {
@@ -67,105 +203,6 @@ public class Booger extends Slime implements GeoEntity {
     @Override
     public EntityType<? extends Slime> getType() {
         return ModEntities.BOOGER.get();
-    }
-
-    public static void setup(Services p_222886_, Executor p_222887_) {
-        profileCache = p_222886_.profileCache();
-        sessionService = p_222886_.sessionService();
-        mainThreadExecutor = p_222887_;
-    }
-
-    public static void clear() {
-        profileCache = null;
-        sessionService = null;
-        mainThreadExecutor = null;
-    }
-
-    @Nullable
-    public GameProfile getOwnerProfile() {
-        return this.owner;
-    }
-
-    @Override
-    public void readAdditionalSaveData(CompoundTag p_155745_) {
-        super.readAdditionalSaveData(p_155745_);
-        if (p_155745_.contains("SkullOwner", 10)) {
-            this.setOwner(NbtUtils.readGameProfile(p_155745_.getCompound("SkullOwner")));
-        }
-        else if (p_155745_.contains("ExtraType", 8)) {
-            String $$1 = p_155745_.getString("ExtraType");
-            if (!StringUtil.isNullOrEmpty($$1)) {
-                this.setOwner(new GameProfile(null, $$1));
-            }
-        }
-    }
-
-    @Override
-    public void addAdditionalSaveData(CompoundTag p_33619_) {
-        super.addAdditionalSaveData(p_33619_);
-        if (this.owner != null) {
-            CompoundTag $$1 = new CompoundTag();
-            NbtUtils.writeGameProfile($$1, this.owner);
-            p_33619_.put("SkullOwner", $$1);
-        }
-    }
-
-    public void setOwner(@Nullable GameProfile p_59770_) {
-        synchronized(this) {
-            this.owner = p_59770_;
-        }
-
-        this.updateOwnerProfile();
-    }
-
-    private void updateOwnerProfile() {
-        updateGameprofile(this.owner, (p_155747_) -> {
-            this.owner = p_155747_;
-        });
-    }
-
-    public static void updateGameprofile(@Nullable GameProfile p_155739_, Consumer<GameProfile> p_155740_) {
-        if (p_155739_ != null && !StringUtil.isNullOrEmpty(p_155739_.getName()) && (!p_155739_.isComplete() || !p_155739_.getProperties().containsKey("textures")) && profileCache != null && sessionService != null) {
-            profileCache.getAsync(p_155739_.getName(), (p_182470_) -> {
-                Util.backgroundExecutor().execute(() -> {
-                    Util.ifElse(p_182470_, (p_276255_) -> {
-                        Property $$2 = (Property) Iterables.getFirst(p_276255_.getProperties().get("textures"), (Object)null);
-                        if ($$2 == null) {
-                            MinecraftSessionService $$3 = sessionService;
-                            if ($$3 == null) {
-                                return;
-                            }
-
-                            p_276255_ = $$3.fillProfileProperties(p_276255_, true);
-                        }
-
-                        GameProfile $$4 = p_276255_;
-                        Executor $$5 = mainThreadExecutor;
-                        if ($$5 != null) {
-                            $$5.execute(() -> {
-                                GameProfileCache $$6 = profileCache;
-                                if ($$6 != null) {
-                                    $$6.add($$4);
-                                    p_155740_.accept($$4);
-                                }
-
-                            });
-                        }
-
-                    }, () -> {
-                        Executor $$2 = mainThreadExecutor;
-                        if ($$2 != null) {
-                            $$2.execute(() -> {
-                                p_155740_.accept(p_155739_);
-                            });
-                        }
-
-                    });
-                });
-            });
-        } else {
-            p_155740_.accept(p_155739_);
-        }
     }
 
     @Override
