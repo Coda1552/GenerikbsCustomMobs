@@ -18,10 +18,10 @@ public class BoogerRenderer<T extends Booger> extends ModGeoRenderer<T> {
         poseStack.pushPose();
         float f = 1.0F;
         if (animatable.getSize() <= 1) {
-            f = 0.45F;
+            f = 0.25F;
         }
         if (animatable.getSize() >= 2) {
-            f = animatable.getSize() * 0.6F;
+            f = animatable.getSize() * 0.75F;
         }
         poseStack.scale(f, f, f);
 

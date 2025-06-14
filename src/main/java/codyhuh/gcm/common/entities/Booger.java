@@ -1,36 +1,29 @@
 package codyhuh.gcm.common.entities;
 
-import codyhuh.gcm.NameManager;
-import codyhuh.gcm.PlayerName;
-import codyhuh.gcm.ProfileUpdater;
+import codyhuh.gcm.GenerikbsCustomMobs;
 import codyhuh.gcm.registry.ModAnimations;
 import codyhuh.gcm.registry.ModEntities;
+import codyhuh.gcm.registry.ModSerializers;
+import com.google.common.collect.Iterables;
 import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.minecraft.MinecraftProfileTexture;
-import net.minecraft.client.resources.SkinManager;
+import com.mojang.authlib.minecraft.MinecraftSessionService;
+import com.mojang.authlib.properties.Property;
+import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.RandomSource;
+import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
-import net.minecraft.world.DifficultyInstance;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.SpawnGroupData;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
@@ -41,12 +34,18 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
 
-import java.util.Objects;
 import java.util.Optional;
-
-import static com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.ELYTRA;
+import java.util.UUID;
 
 public class Booger extends Slime implements GeoEntity {
+    private static final EntityDataAccessor<Optional<GameProfile>> GAMEPROFILE = SynchedEntityData.defineId(Booger.class, ModSerializers.OPTIONAL_GAME_PROFILE.get());
+    private static final EntityDataAccessor<Integer> ID_SIZE = SynchedEntityData.defineId(Booger.class, EntityDataSerializers.INT);;
+
+    private static GameProfileCache profileCache;
+    private static MinecraftSessionService sessionService;
+
+    private String owner;
+    private UUID ownerId;
 
     public Booger(EntityType<? extends Slime> p_33588_, Level p_33589_) {
         super(p_33588_, p_33589_);
@@ -56,141 +55,202 @@ public class Booger extends Slime implements GeoEntity {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 10.0D).add(Attributes.FOLLOW_RANGE, 32.0D).add(Attributes.ATTACK_DAMAGE, 1.0D).add(Attributes.MOVEMENT_SPEED, 0.25D);
     }
 
+    @Nullable
+    public static GameProfile updateGameProfile(@Nullable GameProfile input) {
+        if (input != null && !StringUtil.isNullOrEmpty(input.getName())) {
+            //if (NullProfileCache.isCachedNull(input.getName(), null)) {
+            //    return input;
+            //}
 
-    private static final EntityDataAccessor<String> NAME = SynchedEntityData.defineId(Booger.class, EntityDataSerializers.STRING);
-    @Nullable
-    private GameProfile profile;
-    @Nullable
-    private ResourceLocation skin;
-    private boolean skinAvailable;
+            if (input.isComplete() && input.getProperties().containsKey("textures")) {
+                return input;
+            } else if (profileCache != null && sessionService != null) {
+                Optional<GameProfile> gameprofile = profileCache.get(input.getName());
+                if (!gameprofile.isPresent()) {
+                    //NullProfileCache.cacheNull(input.getName(), input.getId());
+                    return input;
+                } else {
+                    GameProfile profile = gameprofile.get();
+                    Property property = Iterables.getFirst(profile.getProperties().get("textures"), null);
+                    if (property == null) {
+                        //Miniatures.LOG.info("Refilling cache for gameprofile: " + profile);
+                        profile = sessionService.fillProfileProperties(profile, true);
+                    }
+
+                    //if (!profile.isComplete()) {
+                    //    NullProfileCache.cacheNull(profile.getName(), profile.getId());
+                    //}
+
+                    return profile;
+                }
+            } else {
+                return input;
+            }
+        } else {
+            return input;
+        }
+    }
+
+    public static void setProfileCache(GameProfileCache profileCache) {
+        Booger.profileCache = profileCache;
+    }
+
+    public static void setSessionService(MinecraftSessionService sessionService) {
+        Booger.sessionService = sessionService;
+    }
+
+    public void setSize(int p_33594_, boolean p_33595_) {
+        int i = Mth.clamp(p_33594_, 1, 127);
+        this.entityData.set(ID_SIZE, i);
+        this.reapplyPosition();
+        this.refreshDimensions();
+        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue((double)(i * i));
+        this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue((double)(0.2F + 0.1F * (float)i));
+        this.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue((double)i);
+        if (p_33595_) {
+            this.setHealth(this.getMaxHealth());
+        }
+
+        this.xpReward = i;
+    }
+
+    public int getSize() {
+        return this.entityData.get(ID_SIZE);
+    }
+
+    public EntityDimensions getDimensions(Pose p_33597_) {
+        return super.getDimensions(p_33597_).scale(0.5F * (float)this.getSize());
+    }
 
     @Override
     protected void defineSynchedData() {
         super.defineSynchedData();
-        getEntityData().define(NAME, "");
+        this.entityData.define(GAMEPROFILE, Optional.empty());
+        this.entityData.define(ID_SIZE, 1);
     }
 
-    @Override
-    public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor p_33601_, DifficultyInstance p_33602_, MobSpawnType p_33603_, @org.jetbrains.annotations.Nullable SpawnGroupData p_33604_, @org.jetbrains.annotations.Nullable CompoundTag p_33605_) {
+    public Optional<GameProfile> getGameProfile() {
+        return entityData.get(GAMEPROFILE);
+    }
 
-        if (!hasUsername())
-            setUsername(NameManager.INSTANCE.getRandomName());
+    public void setGameProfile(String name) {
+        setGameProfile(new GameProfile(null, name));
+    }
 
-        return super.finalizeSpawn(p_33601_, p_33602_, p_33603_, p_33604_, p_33605_);
+    public void setGameProfile(UUID id) {
+        setGameProfile(new GameProfile(id, null));
+    }
+
+    public void setGameProfile(GameProfile playerProfile) {
+        //if (NullProfileCache.isCachedNull(playerProfile.getName(), playerProfile.getId())) {
+        //    return;
+        //}
+
+        GameProfile profile = updateGameProfile(playerProfile);
+        if (profile != null) {
+            setGameProfileInternal(profile);
+        } else {
+            setGameProfileInternal(null);
+            //NullProfileCache.cacheNull(playerProfile.getName(), playerProfile.getId());
+        }
+    }
+
+    protected void setGameProfileInternal(GameProfile playerProfile) {
+        if (playerProfile != null) {
+            owner = playerProfile.getName();
+            ownerId = playerProfile.getId();
+            entityData.set(GAMEPROFILE, Optional.of(playerProfile));
+        } else {
+            entityData.set(GAMEPROFILE, Optional.empty());
+        }
     }
 
     @Override
     public void addAdditionalSaveData(CompoundTag compound) {
         super.addAdditionalSaveData(compound);
-        if (getCustomName() != null && getCustomName().getString().isEmpty())
-            compound.remove("CustomName");
 
-        String username = getUsername().getCombinedNames();
-        if (!StringUtil.isNullOrEmpty(username))
-            compound.putString("Username", username);
-
-        if (profile != null && profile.isComplete())
-            compound.put("Profile", NbtUtils.writeGameProfile(new CompoundTag(), profile));
-    }
-
-    @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
-        super.readAdditionalSaveData(compound);
-        String username = compound.getString("Username");
-        if (!StringUtil.isNullOrEmpty(username)) {
-            setUsername(username);
-        } else {
-            setUsername(NameManager.INSTANCE.getRandomName());
+        if (owner != null) {
+            compound.putString("owner", owner);
+        }
+        if (ownerId != null) {
+            compound.putUUID("OwnerUUID", ownerId);
         }
 
-        if (compound.contains("Profile", Tag.TAG_COMPOUND)) {
-            profile = NbtUtils.readGameProfile(compound.getCompound("Profile"));
-        }
-    }
+        getGameProfile().ifPresent(profile -> {
+            compound.put("gameProfile", NbtUtils.writeGameProfile(new CompoundTag(), profile));
 
-    @Override
-    public Component getCustomName() {
-        Component customName = super.getCustomName();
-        String displayName = getUsername().getDisplayName();
-        return customName != null && !customName.getString().isEmpty() ? customName : !StringUtil.isNullOrEmpty(displayName) ? Component.literal(displayName) : null;
-    }
-
-    @Override
-    public boolean hasCustomName() {
-        return super.hasCustomName() || !StringUtil.isNullOrEmpty(getUsername().getDisplayName());
-    }
-
-
-    @Nullable
-    public GameProfile getProfile() {
-        if (profile == null && hasUsername()) {
-            profile = new GameProfile(null, getUsername().getSkinName());
-            ProfileUpdater.updateProfile(this);
-        }
-        return profile;
-    }
-
-    public void setProfile(@Nullable GameProfile profile) {
-        this.profile = profile;
-    }
-
-    public boolean hasUsername() {
-        return !StringUtil.isNullOrEmpty(getEntityData().get(NAME));
-    }
-
-    public PlayerName getUsername() {
-        if (!hasUsername() && !level().isClientSide()) {
-            setUsername(NameManager.INSTANCE.getRandomName());
-        }
-        return new PlayerName(getEntityData().get(NAME));
-    }
-
-    public void setUsername(String username) {
-        PlayerName playerName = new PlayerName(username);
-        if (playerName.noDisplayName()) {
-            Optional<PlayerName> name = NameManager.INSTANCE.findName(username);
-            if (name.isPresent())
-                playerName = name.get();
-        }
-        NameManager.INSTANCE.useName(playerName);
-        setUsername(playerName);
-    }
-
-    public void setUsername(PlayerName name) {
-        PlayerName oldName = hasUsername() ? getUsername(): null;
-        getEntityData().set(NAME, name.getCombinedNames());
-
-        if (!Objects.equals(oldName, name)) {
-            setProfile(null);
-            getProfile();
-        }
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public SkinManager.SkinTextureCallback getSkinCallback() {
-        return (type, location, profileTexture) -> {
-            switch (type) {
-                case SKIN -> {
-                    skin = location;
-                    skinAvailable = true;
+            if (owner == null) {
+                if (profile.getName() != null) {
+                    compound.putString("owner", profile.getName());
                 }
             }
-        };
+            if (ownerId == null) {
+                if (profile.getId() != null) {
+                    compound.putUUID("OwnerUUID", profile.getId());
+                } else {
+                    //GenerikbsCustomMobs.LOG.warning("GameProfile has no UUID: " + profile);
+                }
+            }
+        });
+
+        compound.putInt("Size", this.getSize() - 1);
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public boolean isTextureAvailable(MinecraftProfileTexture.Type type) {
-        return skinAvailable;
+    public void readAdditionalSaveData(CompoundTag p_33607_) {
+        this.setSize(p_33607_.getInt("Size") + 1, false);
+        super.readAdditionalSaveData(p_33607_);
     }
 
-    @SuppressWarnings("ConstantConditions")
-    @OnlyIn(Dist.CLIENT)
-    public ResourceLocation getTexture(MinecraftProfileTexture.Type type) {
-        return skin;
+    @Override
+    public void load(CompoundTag compound) {
+        super.load(compound);
+
+        GameProfile incomingProfile = null;
+        String incomingOwner = null;
+        UUID incomingUuid = null;
+
+        if (compound.contains("gameProfile")) {
+            incomingProfile = NbtUtils.readGameProfile(compound.getCompound("gameProfile"));
+        }
+
+        if (incomingProfile == null) {
+            if (compound.contains("owner", Tag.TAG_STRING)) {
+                incomingOwner = compound.getString("owner");
+                incomingProfile = new GameProfile(null, incomingOwner);
+            } else if (compound.hasUUID("OwnerUUID")) {
+                incomingUuid = compound.getUUID("OwnerUUID");
+                incomingProfile = new GameProfile(incomingUuid, null);
+            }
+        }
+
+        GameProfile currentProfile = getGameProfile().orElse(null);
+
+        if (incomingProfile != null && currentProfile != null && ((incomingProfile.getId() != null && !incomingProfile.getId().equals(currentProfile.getId())) || (incomingProfile.getName() != null && !incomingProfile.getName().equals(currentProfile.getName())))) {
+            setGameProfile(incomingProfile);
+        } else if (incomingProfile != null && currentProfile == null) {
+            setGameProfile(incomingProfile);
+        }
     }
 
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        if (GAMEPROFILE.equals(key) && this.level().isClientSide()) {
+            this.getGameProfile().ifPresent(gameprofile -> {
+                if (gameprofile.isComplete()) {
+                    Minecraft.getInstance().getSkinManager().registerSkins(gameprofile, (textureType, textureLocation, profileTexture) -> {}, true);
+                }
+            });
+        }
 
-    ///// VVV /////
+        if (ID_SIZE.equals(key)) {
+            this.refreshDimensions();
+            this.setYRot(this.yHeadRot);
+            this.yBodyRot = this.yHeadRot;
+            if (this.isInWater() && this.random.nextInt(20) == 0) {
+                this.doWaterSplashEffect();
+            }
+        }
+    }
 
     @Override
     public void travel(Vec3 p_21280_) {

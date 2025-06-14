@@ -1,7 +1,6 @@
 package codyhuh.gcm.client;
 
 import codyhuh.gcm.GenerikbsCustomMobs;
-import codyhuh.gcm.TextureUtils;
 import codyhuh.gcm.client.geo.BoogerRenderer;
 import codyhuh.gcm.client.geo.ModGeoRenderer;
 import codyhuh.gcm.client.geo.TossedBoogerRenderer;
@@ -9,7 +8,6 @@ import codyhuh.gcm.registry.ModEntities;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import software.bernie.geckolib.model.DefaultedEntityGeoModel;
@@ -23,10 +21,5 @@ public class ClientEvents {
         e.registerEntityRenderer(ModEntities.TOSSED_BOOGER.get(), TossedBoogerRenderer::new);
         e.registerEntityRenderer(ModEntities.BOOGER.get(), BoogerRenderer::new);
         e.registerEntityRenderer(ModEntities.PECKER_FIGHTER.get(), (ctx) -> new ModGeoRenderer<>(ctx, () -> new DefaultedEntityGeoModel<>(new ResourceLocation(GenerikbsCustomMobs.MOD_ID, "pecker_fighter"), true)));
-    }
-
-    @SubscribeEvent
-    public static void onRegisterReloadListener(RegisterClientReloadListenersEvent event) {
-        event.registerReloadListener(TextureUtils.resourceManagerReloadListener());
     }
 }

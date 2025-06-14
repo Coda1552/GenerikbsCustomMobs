@@ -6,12 +6,14 @@ import codyhuh.gcm.common.entities.BoogerEater;
 import codyhuh.gcm.common.entities.PeckerFighter;
 import codyhuh.gcm.registry.ModEntities;
 import codyhuh.gcm.registry.ModItems;
+import codyhuh.gcm.registry.ModSerializers;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.registries.RegistryObject;
 
 @Mod.EventBusSubscriber(modid = GenerikbsCustomMobs.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -32,6 +34,5 @@ public class CommonEvents {
             }
         }
     }
-
 }
 
