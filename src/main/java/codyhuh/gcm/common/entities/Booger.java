@@ -12,17 +12,20 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
+import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -53,6 +56,40 @@ public class Booger extends Slime implements GeoEntity {
 
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 10.0D).add(Attributes.FOLLOW_RANGE, 32.0D).add(Attributes.ATTACK_DAMAGE, 1.0D).add(Attributes.MOVEMENT_SPEED, 0.25D);
+    }
+
+    public void remove(Entity.RemovalReason p_149847_) {
+        int i = this.getSize();
+        if (!this.level().isClientSide && i > 1 && this.isDeadOrDying()) {
+            Component component = this.getCustomName();
+            boolean flag = this.isNoAi();
+            float f = (float)i / 4.0F;
+            int j = i / 2;
+            int k = 2 + this.random.nextInt(3);
+
+            for(int l = 0; l < k; ++l) {
+                float f1 = ((float)(l % 2) - 0.5F) * f;
+                float f2 = ((float)(l / 2) - 0.5F) * f;
+                Booger booger = (Booger)this.getType().create(this.level());
+                if (booger != null) {
+                    if (this.isPersistenceRequired()) {
+                        booger.setPersistenceRequired();
+                    }
+
+                    booger.setCustomName(component);
+                    booger.setNoAi(flag);
+                    booger.setGameProfile(owner);
+                    booger.setInvulnerable(this.isInvulnerable());
+                    booger.setSize(j, true);
+                    booger.moveTo(this.getX() + (double)f1, this.getY() + 0.5, this.getZ() + (double)f2, this.random.nextFloat() * 360.0F, 0.0F);
+                    this.level().addFreshEntity(booger);
+                }
+            }
+        }
+
+        this.brain.clearMemories();
+        this.setRemoved(p_149847_);
+        this.invalidateCaps();
     }
 
     @Nullable
@@ -160,6 +197,7 @@ public class Booger extends Slime implements GeoEntity {
             owner = playerProfile.getName();
             ownerId = playerProfile.getId();
             entityData.set(GAMEPROFILE, Optional.of(playerProfile));
+            setCustomName(Component.literal(playerProfile.getName()));
         } else {
             entityData.set(GAMEPROFILE, Optional.empty());
         }
@@ -268,7 +306,6 @@ public class Booger extends Slime implements GeoEntity {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllerRegistrar) {
         controllerRegistrar.add(new AnimationController<GeoEntity>(this, "controller", 2, this::predicate));
-
     }
 
     private <E extends GeoEntity> PlayState predicate(AnimationState<E> event) {
